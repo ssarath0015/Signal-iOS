@@ -38,6 +38,7 @@ public final class ConversationViewController: OWSViewController {
 
     internal let context: ViewControllerContext
 
+    public let thread: TSThread
     public let appReadiness: AppReadinessSetter
     public let viewState: CVViewState
     public let loadCoordinator: CVLoadCoordinator
@@ -145,6 +146,7 @@ public final class ConversationViewController: OWSViewController {
         AssertIsOnMainThread()
 
         self.appReadiness = appReadiness
+        self.thread = threadViewModel.threadRecord
         self.context = ViewControllerContext.shared
 
         self.viewState = CVViewState(
@@ -357,6 +359,9 @@ public final class ConversationViewController: OWSViewController {
         self.updateBarButtonItems()
         self.updateNavigationTitle()
 
+        self.updateOnlineStatusIndicator()
+        NotificationCenter.default.addObserver(self, selector: #selector(updateOnlineStatusIndicator), name: OnlineStatusManager.onlineStatusDidChange, object: nil)
+
         self.ensureBottomViewType()
         self.updateInputToolbarLayout(initialLayout: true)
         self.refreshCallState()
@@ -457,6 +462,8 @@ public final class ConversationViewController: OWSViewController {
     // until `viewDidDisappear`.
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+
+        NotificationCenter.default.removeObserver(self, name: OnlineStatusManager.onlineStatusDidChange, object: nil)
 
         self.isViewCompletelyAppeared = false
 
@@ -681,5 +688,29 @@ extension ConversationViewController: ContactsViewHelperObserver {
         AssertIsOnMainThread()
 
         loadCoordinator.enqueueReload(canReuseInteractionModels: true, canReuseComponentStates: false)
+    }
+}
+
+// MARK: - Online Status
+extension ConversationViewController {
+    @objc private func updateOnlineStatusIndicator() {
+        guard let contactThread = self.thread as? TSContactThread else {
+            // Not a 1-on-1 chat, do nothing for now.
+            return
+        }
+        guard let headerView = self.navigationItem.titleView as? ConversationHeaderView else {
+            return
+        }
+
+        let username = contactThread.recipientAddress.toE164() ?? ""
+        guard !username.isEmpty else {
+            return
+        }
+
+        let isOnline = OnlineStatusManager.shared.isOnline(username: username)
+
+        headerView.avatarView.updateWithSneakyTransactionIfNecessary { config in
+            config.isOnline = isOnline
+        }
     }
 }
