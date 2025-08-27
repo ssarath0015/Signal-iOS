@@ -52,7 +52,7 @@ public class OnlineStatusManager {
 
     @objc private func fetchOnlineStatus() {
         let contacts = ArmourInternalContactManager.shared.getAllInternalContacts()
-        let usernames = contacts.map { $0.number }
+        let usernames = contacts.compactMap { $0.number }
 
         guard !usernames.isEmpty else {
             return
