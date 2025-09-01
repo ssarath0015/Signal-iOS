@@ -244,9 +244,6 @@ public class SSKEnvironment: NSObject {
     public func warmCaches(appReadiness: AppReadiness) {
         // Note: All of these methods must be safe to invoke repeatedly.
 
-        // Initialize our custom managers
-        _ = KeepAliveManager.shared
-
         DependenciesBridge.shared.tsAccountManager.warmCaches()
         fixLocalRecipientIfNeeded()
         SignalProxy.warmCaches(appReadiness: appReadiness)

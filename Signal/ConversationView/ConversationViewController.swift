@@ -359,15 +359,37 @@ public final class ConversationViewController: OWSViewController {
         self.updateBarButtonItems()
         self.updateNavigationTitle()
 
-        self.updateOnlineStatusIndicator()
-        NotificationCenter.default.addObserver(self, selector: #selector(updateOnlineStatusIndicator), name: OnlineStatusManager.onlineStatusDidChange, object: nil)
+        self.fetchAndDisplayLastSeenStatus()
 
         self.ensureBottomViewType()
         self.updateInputToolbarLayout(initialLayout: true)
         self.refreshCallState()
 
-        self.showMessageRequestDialogIfRequired()
+        self.handleMessageRequest()
         self.viewWillAppearDidComplete()
+    }
+
+    private func handleMessageRequest() {
+        guard let contactThread = self.thread as? TSContactThread else {
+            // Not a 1-on-1 chat, show the dialog if required.
+            self.showMessageRequestDialogIfRequired()
+            return
+        }
+
+        let armourContacts = ArmourInternalContactManager.shared.getAllInternalContacts()
+        let contactPhoneNumber = contactThread.contactAddress.phoneNumber
+
+        let isArmourContact = armourContacts.contains { $0.number == contactPhoneNumber }
+
+        if isArmourContact {
+            // This is an internal contact, so we can auto-accept the message request.
+            Task {
+                await self.acceptMessageRequest(in: self.thread, mode: .contactOrGroupRequest, unblockThread: true, unhideRecipient: true)
+            }
+        } else {
+            // This is an external contact, so we show the message request dialog.
+            self.showMessageRequestDialogIfRequired()
+        }
     }
 
     private var groupAndProfileRefresherTask: Task<Void, any Error>?
@@ -462,8 +484,6 @@ public final class ConversationViewController: OWSViewController {
     // until `viewDidDisappear`.
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-
-        NotificationCenter.default.removeObserver(self, name: OnlineStatusManager.onlineStatusDidChange, object: nil)
 
         self.isViewCompletelyAppeared = false
 
@@ -693,12 +713,9 @@ extension ConversationViewController: ContactsViewHelperObserver {
 
 // MARK: - Online Status
 extension ConversationViewController {
-    @objc private func updateOnlineStatusIndicator() {
+    private func fetchAndDisplayLastSeenStatus() {
         guard let contactThread = self.thread as? TSContactThread else {
             // Not a 1-on-1 chat, do nothing for now.
-            return
-        }
-        guard let headerView = self.navigationItem.titleView as? ConversationHeaderView else {
             return
         }
 
@@ -707,10 +724,46 @@ extension ConversationViewController {
             return
         }
 
-        let isOnline = OnlineStatusManager.shared.isOnline(username: username)
+        let request = LastSeenRequests.getLastSeen(for: username)
+
+        SSKEnvironment.shared.networkManager.makeRequest(request) { [weak self] result in
+            guard let self = self else { return }
+
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let response):
+                    guard let data = response.data else { return }
+                    do {
+                        let lastSeenResponse = try JSONDecoder().decode(SingleLastSeenResponse.self, from: data)
+
+                        let formatter = ISO8601DateFormatter()
+                        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+                        if let lastSeenDate = formatter.date(from: lastSeenResponse.lastSeen) {
+                            self.updateHeader(with: lastSeenDate)
+                        }
+                    } catch {
+                        Logger.error("Failed to decode single last seen response: \(error)")
+                    }
+                case .failure(let error):
+                    Logger.warn("Failed to fetch single last seen status: \(error)")
+                }
+            }
+        }
+    }
+
+    private func updateHeader(with lastSeenDate: Date) {
+        guard let headerView = self.navigationItem.titleView as? ConversationHeaderView else {
+            return
+        }
+
+        let formattedLastSeen = TimeDifferenceFormatter.formatLastSeen(date: lastSeenDate)
+        let isOnline = Date().timeIntervalSince(lastSeenDate) <= 60
 
         headerView.avatarView.updateWithSneakyTransactionIfNecessary { config in
             config.isOnline = isOnline
         }
+
+        headerView.attributedSubtitle = NSAttributedString(string: formattedLastSeen)
     }
 }

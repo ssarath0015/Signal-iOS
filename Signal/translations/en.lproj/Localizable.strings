@@ -9045,3 +9045,11 @@
 
 /* Info Message when you update disappearing messages duration. Embeds a {{time amount}} before messages disappear. see the *_TIME_AMOUNT strings for context. */
 "YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "You set disappearing message time to %@.";
+
+// MARK: - Last Seen Status
+"LAST_SEEN_JUST_NOW" = "last seen just now";
+"LAST_SEEN_MINUTES_AGO" = "last seen %d minutes ago";
+"LAST_SEEN_HOURS_AGO" = "last seen %d hours ago";
+"LAST_SEEN_YESTERDAY" = "last seen yesterday";
+"LAST_SEEN_DAYS_AGO" = "last seen %d days ago";
+"LAST_SEEN_DATE" = "last seen on %@";

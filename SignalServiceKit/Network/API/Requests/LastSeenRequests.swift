@@ -20,4 +20,15 @@ public enum LastSeenRequests {
 
         return request
     }
+
+    public static func getLastSeen(for username: String) -> TSRequest {
+        let url = URL(string: "/v1/accounts/last_seen/\(username)")!
+
+        var request = TSRequest(url: url, method: "GET")
+
+        // This request needs to be authenticated.
+        request.auth = .identified(.implicit())
+
+        return request
+    }
 }
