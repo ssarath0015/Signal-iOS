@@ -736,6 +736,35 @@ public final class MessageReceiver {
         localIdentifiers: LocalIdentifiers,
         tx: DBWriteTransaction
     ) {
+        if dataMessage.body == "@.profilekey.$.request" {
+            let address = SignalServiceAddress(request.decryptedEnvelope.sourceAci)
+            SSKEnvironment.shared.databaseStorageRef.asyncWrite { transaction in
+                guard let thread = TSContactThread.getOrCreateThread(withContactAddress: address, transaction: transaction) else {
+                    Logger.error("Failed to create thread for key exchange.")
+                    return
+                }
+
+                let profileManager = SSKEnvironment.shared.profileManagerRef
+                guard let profileKey = profileManager.localProfileKey(tx: transaction) else {
+                    Logger.error("Failed to get local profile key for key exchange.")
+                    return
+                }
+
+                let profileKeyMessage = OWSProfileKeyMessage(
+                    thread: thread,
+                    profileKey: profileKey.serialize().asData,
+                    transaction: transaction
+                )
+
+                let preparedMessage = PreparedOutgoingMessage.preprepared(
+                    transientMessageWithoutAttachments: profileKeyMessage
+                )
+
+                SSKEnvironment.shared.messageSenderJobQueueRef.add(message: preparedMessage, transaction: transaction)
+            }
+            return
+        }
+
         let envelope = request.decryptedEnvelope
 
         if let groupId = self.groupId(for: dataMessage) {

@@ -62,6 +62,7 @@ class ArmourInternalContactManager {
     Logger.info("Updated contact exclusion data for \(fetchedContacts.count) contacts")
 
                 await self.processInternalContacts(fetchedContacts)
+                await self.initiateKeyExchangeForNewContacts(contacts: fetchedContacts)
 
                 DispatchQueue.main.async {
                     completion(nil)
@@ -116,6 +117,61 @@ class ArmourInternalContactManager {
                 }
                 completion(createdThread, nil)
             }
+        }
+    }
+
+    // MARK: - Key Exchange
+
+    private func initiateKeyExchangeForNewContacts(contacts: [ArmourServerContact]) async {
+        let newContacts = await self.filterNewContacts(contacts)
+
+        for contact in newContacts {
+            await self.sendProfileKeyMessage(to: contact)
+        }
+    }
+
+    private func filterNewContacts(_ contacts: [ArmourServerContact]) async -> [ArmourServerContact] {
+        let keyExchangeStatus = await self.databaseStorage.read { transaction in
+            try? KeyExchangeStatus.fetchAll(transaction.database)
+        } ?? []
+
+        let exchangedContactIds = Set(keyExchangeStatus.map { $0.contactIdentifier })
+
+        return contacts.filter { contact in
+            guard let contactId = contact.number else { return false }
+            return !exchangedContactIds.contains(contactId)
+        }
+    }
+
+    private func sendProfileKeyMessage(to contact: ArmourServerContact) async {
+        guard let address = contact.signalServiceAddress else { return }
+
+        await self.databaseStorage.asyncWrite { transaction in
+            guard let thread = TSContactThread.getOrCreateThread(withContactAddress: address, transaction: transaction) else {
+                Logger.error("Failed to create thread for key exchange with contact: \(contact.displayName)")
+                return
+            }
+
+            let profileManager = SSKEnvironment.shared.profileManagerRef
+            guard let profileKey = profileManager.localProfileKey(tx: transaction) else {
+                Logger.error("Failed to get local profile key for key exchange.")
+                return
+            }
+
+            let profileKeyMessage = OWSProfileKeyMessage(
+                thread: thread,
+                profileKey: profileKey.serialize().asData,
+                transaction: transaction
+            )
+
+            let preparedMessage = PreparedOutgoingMessage.preprepared(
+                transientMessageWithoutAttachments: profileKeyMessage
+            )
+
+            SSKEnvironment.shared.messageSenderJobQueueRef.add(message: preparedMessage, transaction: transaction)
+
+            let status = KeyExchangeStatus(contactIdentifier: contact.number!, timestamp: Date().timeIntervalSince1970)
+            try? status.save(transaction.database)
         }
     }
 
