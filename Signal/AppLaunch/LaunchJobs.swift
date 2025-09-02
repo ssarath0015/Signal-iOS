@@ -23,5 +23,15 @@ enum LaunchJobs {
         // calls that were not connected, failed or hung up before the app existed
         // should be marked as missed.
         await IncompleteCallsJob().run(databaseStorage: databaseStorage)
+
+        // Sync internal contacts
+        await withCheckedContinuation { continuation in
+            ArmourInternalContactManager.shared.syncInternalContacts { error in
+                if let error = error {
+                    Logger.error("Failed to sync internal contacts on launch: \(error)")
+                }
+                continuation.resume()
+            }
+        }
     }
 }

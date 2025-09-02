@@ -62,8 +62,15 @@ public class ConversationAvatarView: UIView, CVView, PrimaryImageView {
         addSubview(storyStateView)
         addSubview(avatarView)
         addSubview(badgeView)
+        addSubview(onlineIndicatorView)
         autoresizesSubviews = false
-        isUserInteractionEnabled = false
+
+        // Per user request, the tap gesture is now configured directly here.
+        // The view is now always interactive for taps.
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(didTapAvatar(_:)))
+        avatarView.addGestureRecognizer(tapGesture)
+        avatarView.isUserInteractionEnabled = true
+        isUserInteractionEnabled = true
     }
 
     required init?(coder: NSCoder) {
@@ -168,6 +175,9 @@ public class ConversationAvatarView: UIView, CVView, PrimaryImageView {
         /// Otherwise, it's the superview's responsibility to ensure this view is sized appropriately
         public var useAutolayout: Bool
 
+        /// Whether to show the online status indicator. Defaults to true.
+        public var isOnline: Bool = true
+
         // Adopters that'd like to fetch the image synchronously can set this to perform
         // the next model update synchronously if necessary.
         fileprivate var forceSyncUpdate: Bool = false
@@ -239,6 +249,7 @@ public class ConversationAvatarView: UIView, CVView, PrimaryImageView {
         let shapeDidChange = configuration.shape != oldValue.shape
         let autolayoutDidChange = configuration.useAutolayout != oldValue.useAutolayout
         let storyStateDidChange = configuration.storyConfiguration != oldValue.storyConfiguration
+        let isOnlineDidChange = configuration.isOnline != oldValue.isOnline
 
         // Any changes to avatar size or provider will trigger a model update
         let needsModelUpdate: Bool = (
@@ -258,7 +269,7 @@ public class ConversationAvatarView: UIView, CVView, PrimaryImageView {
             setNeedsUpdateConstraints()
         }
 
-        if sizeClassDidChange || avatarSizeClassDidChange || shouldShowBadgeDidChange || shapeDidChange || storyStateDidChange {
+        if sizeClassDidChange || avatarSizeClassDidChange || shouldShowBadgeDidChange || shapeDidChange || storyStateDidChange || isOnlineDidChange {
             setNeedsLayout()
         }
     }
@@ -412,6 +423,14 @@ public class ConversationAvatarView: UIView, CVView, PrimaryImageView {
         return view
     }()
 
+    private let onlineIndicatorView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .systemGreen
+        view.layer.borderWidth = 2
+        view.layer.borderColor = UIColor.white.cgColor
+        return view
+    }()
+
     private var badgeView: UIImageView = {
         let view = UIImageView()
         view.contentMode = .scaleAspectFit
@@ -472,6 +491,36 @@ public class ConversationAvatarView: UIView, CVView, PrimaryImageView {
         badgeView.frame = CGRect(origin: configuration.sizeClass.badgeOffset, size: configuration.sizeClass.badgeSize)
         badgeView.isHidden = (badgeView.image == nil)
 
+        onlineIndicatorView.isHidden = !configuration.isOnline
+        if !onlineIndicatorView.isHidden {
+            let indicatorDiameter: CGFloat
+            switch configuration.sizeClass.diameter {
+            case 0..<40:
+                indicatorDiameter = 10
+            case 40..<80:
+                indicatorDiameter = 12
+            default:
+                indicatorDiameter = 14
+            }
+
+            let avatarRadius = avatarView.frame.width / 2
+            let avatarCenter = avatarView.center
+            let angle = CGFloat.pi / 4 // 45 degrees for bottom right
+
+            let indicatorCenterY = avatarCenter.y + avatarRadius * sin(angle)
+            let indicatorCenterX = avatarCenter.x + avatarRadius * cos(angle)
+            let indicatorRadius = indicatorDiameter / 2
+
+            onlineIndicatorView.frame = CGRect(
+                x: indicatorCenterX - indicatorRadius,
+                y: indicatorCenterY - indicatorRadius,
+                width: indicatorDiameter,
+                height: indicatorDiameter
+            )
+            onlineIndicatorView.layer.cornerRadius = indicatorRadius
+            bringSubviewToFront(onlineIndicatorView)
+        }
+
         switch configuration.shape {
         case .circular:
             storyStateView.layer.cornerRadius = (storyStateView.bounds.height / 2)
@@ -492,13 +541,6 @@ public class ConversationAvatarView: UIView, CVView, PrimaryImageView {
 
     // MARK: - Controls
 
-    lazy private var avatarTapGestureRecognizer: UITapGestureRecognizer = {
-        let tapGestureRecognizer = UITapGestureRecognizer()
-        tapGestureRecognizer.addTarget(self, action: #selector(didTapAvatar(_:)))
-        tapGestureRecognizer.numberOfTapsRequired = 1
-        return tapGestureRecognizer
-    }()
-
     lazy private var badgeTapGestureRecognizer: UITapGestureRecognizer = {
         let tapGestureRecognizer = UITapGestureRecognizer()
         tapGestureRecognizer.addTarget(self, action: #selector(didTapBadge(_:)))
@@ -509,17 +551,11 @@ public class ConversationAvatarView: UIView, CVView, PrimaryImageView {
     public weak var interactionDelegate: (any ConversationAvatarViewDelegate)? {
         didSet {
             if interactionDelegate != nil, oldValue == nil {
-                avatarView.addGestureRecognizer(avatarTapGestureRecognizer)
                 badgeView.addGestureRecognizer(badgeTapGestureRecognizer)
-                avatarView.isUserInteractionEnabled = true
                 badgeView.isUserInteractionEnabled = true
-                isUserInteractionEnabled = true
             } else if interactionDelegate == nil, oldValue != nil {
-                avatarView.removeGestureRecognizer(avatarTapGestureRecognizer)
                 badgeView.removeGestureRecognizer(badgeTapGestureRecognizer)
-                avatarView.isUserInteractionEnabled = false
                 badgeView.isUserInteractionEnabled = false
-                isUserInteractionEnabled = false
             }
         }
     }

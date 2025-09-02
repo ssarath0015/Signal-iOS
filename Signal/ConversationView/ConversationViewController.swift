@@ -38,6 +38,7 @@ public final class ConversationViewController: OWSViewController {
 
     internal let context: ViewControllerContext
 
+    public let thread: TSThread
     public let appReadiness: AppReadinessSetter
     public let viewState: CVViewState
     public let loadCoordinator: CVLoadCoordinator
@@ -145,6 +146,7 @@ public final class ConversationViewController: OWSViewController {
         AssertIsOnMainThread()
 
         self.appReadiness = appReadiness
+        self.thread = threadViewModel.threadRecord
         self.context = ViewControllerContext.shared
 
         self.viewState = CVViewState(
@@ -356,6 +358,9 @@ public final class ConversationViewController: OWSViewController {
 
         self.updateBarButtonItems()
         self.updateNavigationTitle()
+
+        self.initiateKeyExchangeIfNecessary()
+        self.fetchAndDisplayLastSeenStatus()
 
         self.ensureBottomViewType()
         self.updateInputToolbarLayout(initialLayout: true)
@@ -681,5 +686,91 @@ extension ConversationViewController: ContactsViewHelperObserver {
         AssertIsOnMainThread()
 
         loadCoordinator.enqueueReload(canReuseInteractionModels: true, canReuseComponentStates: false)
+    }
+}
+
+// MARK: - Key Exchange
+extension ConversationViewController {
+    private func initiateKeyExchangeIfNecessary() {
+        guard let contactThread = self.thread as? TSContactThread else {
+            return
+        }
+
+        let contactAddress = contactThread.contactAddress
+        let internalContacts = ArmourInternalContactManager.shared.getAllInternalContacts()
+        let isInternalContact = internalContacts.contains { $0.number == contactAddress.phoneNumber }
+
+        guard isInternalContact else {
+            return
+        }
+
+        SSKEnvironment.shared.databaseStorageRef.read { transaction in
+            do {
+                let profileKeyRecord = try ProfileKeyRecord.fetch(aci: contactAddress.aci, tx: transaction)
+                if profileKeyRecord == nil {
+                    // No profile key, so send a request.
+                    self.sendProfileKeyRequest(to: contactThread)
+                }
+            } catch {
+                Logger.warn("Failed to fetch profile key record: \(error)")
+            }
+        }
+    }
+
+    private func sendProfileKeyRequest(to thread: TSContactThread) {
+        SSKEnvironment.shared.databaseStorageRef.asyncWrite { transaction in
+            let message = OWSProfileKeyRequestMessage(thread: thread, transaction: transaction)
+            let preparedMessage = PreparedOutgoingMessage.preprepared(
+                transientMessageWithoutAttachments: message
+            )
+            SSKEnvironment.shared.messageSenderJobQueueRef.add(message: preparedMessage, transaction: transaction)
+        }
+    }
+}
+
+// MARK: - Online Status
+extension ConversationViewController {
+    private func fetchAndDisplayLastSeenStatus() {
+        guard let contactThread = self.thread as? TSContactThread else {
+            // Not a 1-on-1 chat, do nothing for now.
+            return
+        }
+
+        guard let username = contactThread.recipientAddress.toE164(), !username.isEmpty else {
+            return
+        }
+
+        LastSeenManager.shared.getLastSeen(for: username) { [weak self] result in
+            guard let self = self else { return }
+
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let lastSeenResponse):
+                    let formatter = ISO8601DateFormatter()
+                    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+                    if let lastSeenDate = formatter.date(from: lastSeenResponse.lastSeen) {
+                        self.updateHeader(with: lastSeenDate)
+                    }
+                case .failure(let error):
+                    Logger.warn("Failed to fetch single last seen status: \(error)")
+                }
+            }
+        }
+    }
+
+    private func updateHeader(with lastSeenDate: Date) {
+        guard let headerView = self.navigationItem.titleView as? ConversationHeaderView else {
+            return
+        }
+
+        let formattedLastSeen = TimeDifferenceFormatter.formatLastSeen(date: lastSeenDate)
+        let isOnline = Date().timeIntervalSince(lastSeenDate) <= 60
+
+        headerView.avatarView.updateWithSneakyTransactionIfNecessary { config in
+            config.isOnline = isOnline
+        }
+
+        headerView.attributedSubtitle = NSAttributedString(string: formattedLastSeen)
     }
 }

@@ -327,6 +327,7 @@ public class GRDBSchemaMigrator {
         case populateAvatarDefaultColorTable
         case addStoryRecipient
         case addAttachmentLastFullscreenViewTimestamp
+        case createKeyExchangeStatusTable
 
         // NOTE: Every time we add a migration id, consider
         // incrementing grdbSchemaVersionLatest.
@@ -3956,6 +3957,14 @@ public class GRDBSchemaMigrator {
         migrator.registerMigration(.addAttachmentLastFullscreenViewTimestamp) { tx in
             try tx.database.alter(table: "Attachment") { table in
                 table.add(column: "lastFullscreenViewTimestamp", .integer)
+            }
+            return .success(())
+        }
+
+        migrator.registerMigration(.createKeyExchangeStatusTable) { tx in
+            try tx.database.create(table: "KeyExchangeStatus") { table in
+                table.column("contactIdentifier", .text).notNull().unique()
+                table.column("timestamp", .integer).notNull()
             }
             return .success(())
         }

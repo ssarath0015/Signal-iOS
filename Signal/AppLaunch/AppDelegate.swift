@@ -76,6 +76,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationWillEnterForeground(_ application: UIApplication) {
         Logger.info("")
+        LastSeenManager.shared.start()
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
@@ -127,6 +128,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationDidEnterBackground(_ application: UIApplication) {
         Logger.info("")
+        LastSeenManager.shared.stop()
 
         if shouldKillAppWhenBackgrounded {
             Logger.flush()

@@ -351,6 +351,39 @@ public final class MessageReceiver {
         }
     }
 
+    private func handleProfileKeyRequest(for dataMessage: SSKProtoDataMessage, request: MessageReceiverRequest) -> Bool {
+        guard dataMessage.body == "@.profilekey.$.request" else {
+            return false
+        }
+
+        let address = SignalServiceAddress(request.decryptedEnvelope.sourceAci)
+        SSKEnvironment.shared.databaseStorageRef.asyncWrite { transaction in
+            guard let thread = TSContactThread.getOrCreateThread(withContactAddress: address, transaction: transaction) else {
+                Logger.error("Failed to create thread for key exchange.")
+                return
+            }
+
+            let profileManager = SSKEnvironment.shared.profileManagerRef
+            guard let profileKey = profileManager.localProfileKey(tx: transaction) else {
+                Logger.error("Failed to get local profile key for key exchange.")
+                return
+            }
+
+            let profileKeyMessage = OWSProfileKeyMessage(
+                thread: thread,
+                profileKey: profileKey.serialize().asData,
+                transaction: transaction
+            )
+
+            let preparedMessage = PreparedOutgoingMessage.preprepared(
+                transientMessageWithoutAttachments: profileKeyMessage
+            )
+
+            SSKEnvironment.shared.messageSenderJobQueueRef.add(message: preparedMessage, transaction: transaction)
+        }
+        return true
+    }
+
     private func handleIncomingEnvelope(
         request: MessageReceiverRequest,
         syncMessage: SSKProtoSyncMessage,
@@ -857,6 +890,10 @@ public final class MessageReceiver {
         thread: TSThread,
         tx: DBWriteTransaction
     ) -> TSIncomingMessage? {
+        if handleProfileKeyRequest(for: dataMessage, request: request) {
+            return nil
+        }
+
         let envelope = request.decryptedEnvelope
 
         guard !dataMessage.hasRequiredProtocolVersion || dataMessage.requiredProtocolVersion <= SSKProtos.currentProtocolVersion else {
@@ -1142,6 +1179,8 @@ public final class MessageReceiver {
         // Inserting the message may have modified the thread on disk, so reload
         // it. For example, we may have marked the thread as visible.
         let updatedThread = TSThread.anyFetch(uniqueId: thread.uniqueId, transaction: tx) ?? thread
+
+        MessageRequestManager.shared.acceptMessageRequestIfNecessary(for: updatedThread, transaction: tx)
 
         do {
             try DependenciesBridge.shared.attachmentManager.createAttachmentPointers(
