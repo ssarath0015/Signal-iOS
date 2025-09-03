@@ -14,9 +14,10 @@ protocol RegistrationPermissionsPresenter {
 
 struct RegistrationPermissionsView: View {
     var requestingContactsAuthorization: Bool
+    var requestingLocalNetworkAuthorization: Bool
     var presenter: any RegistrationPermissionsPresenter
 
-    @State private var hasAppeared = (notifications: false, contacts: false)
+    @State private var hasAppeared = (notifications: false, contacts: false, localNetwork: false)
     @State private var requestPermissions: RequestPermissionsTask?
 
     @Environment(\.appearanceTransitionState) private var appearanceTransitionState
@@ -70,6 +71,10 @@ struct RegistrationPermissionsView: View {
                             if requestingContactsAuthorization {
                                 contactsPermissionView
                             }
+
+                            if requestingLocalNetworkAuthorization {
+                                localNetworkPermissionView
+                            }
                         }
                         .hidden()
 
@@ -82,6 +87,10 @@ struct RegistrationPermissionsView: View {
 
                                 if requestingContactsAuthorization && hasAppeared.contacts {
                                     contactsPermissionView
+                                }
+
+                                if requestingLocalNetworkAuthorization && hasAppeared.localNetwork {
+                                    localNetworkPermissionView
                                 }
                             }
                             .transition(.offset(x: 0, y: -20).combined(with: .opacity))
@@ -113,6 +122,11 @@ struct RegistrationPermissionsView: View {
                 if requestingContactsAuthorization {
                     withAnimation(spring.delay(duration)) {
                         hasAppeared.contacts = true
+                    }
+                }
+                if requestingLocalNetworkAuthorization {
+                    withAnimation(spring.delay(duration * (requestingContactsAuthorization ? 2 : 1))) {
+                        hasAppeared.localNetwork = true
                     }
                 }
             }
@@ -147,6 +161,16 @@ struct RegistrationPermissionsView: View {
             Text(OWSLocalizedString("ONBOARDING_PERMISSIONS_CONTACTS_DESCRIPTION", comment: "Description of the 'Contacts' permission in the 'onboarding permissions' view."))
         } icon: {
             PermissionIcon(.personCircleLarge)
+        }
+    }
+
+    private var localNetworkPermissionView: some View {
+        PermissionDescription {
+            Text(OWSLocalizedString("ONBOARDING_PERMISSIONS_LOCAL_NETWORK_TITLE", comment: "Title introducing the 'Local Network' permission in the 'onboarding permissions' view."))
+        } description: {
+            Text(OWSLocalizedString("ONBOARDING_PERMISSIONS_LOCAL_NETWORK_DESCRIPTION", comment: "Description of the 'Local Network' permission in the 'onboarding permissions' view."))
+        } icon: {
+            PermissionIcon(.devices)
         }
     }
 }
@@ -224,12 +248,18 @@ private extension RegistrationPermissionsView {
 
 final class RegistrationPermissionsViewController: OWSViewController, OWSNavigationChildController {
     let requestingContactsAuthorization: Bool
+    let requestingLocalNetworkAuthorization: Bool
     let presenter: any RegistrationPermissionsPresenter
 
     var prefersNavigationBarHidden: Bool { true }
 
-    init(requestingContactsAuthorization: Bool, presenter: any RegistrationPermissionsPresenter) {
+    init(
+        requestingContactsAuthorization: Bool,
+        requestingLocalNetworkAuthorization: Bool,
+        presenter: any RegistrationPermissionsPresenter
+    ) {
         self.requestingContactsAuthorization = requestingContactsAuthorization
+        self.requestingLocalNetworkAuthorization = requestingLocalNetworkAuthorization
         self.presenter = presenter
         super.init()
     }
@@ -241,6 +271,7 @@ final class RegistrationPermissionsViewController: OWSViewController, OWSNavigat
         let hostingController = HostingController(
             wrappedView: RegistrationPermissionsView(
                 requestingContactsAuthorization: requestingContactsAuthorization,
+                requestingLocalNetworkAuthorization: requestingLocalNetworkAuthorization,
                 presenter: presenter
             )
         )

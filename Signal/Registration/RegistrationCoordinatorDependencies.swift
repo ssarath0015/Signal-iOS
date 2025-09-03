@@ -21,6 +21,7 @@ public struct RegistrationCoordinatorDependencies {
     public let featureFlags: RegistrationCoordinatorImpl.Shims.FeatureFlags
     public let accountKeyStore: AccountKeyStore
     public let identityManager: RegistrationCoordinatorImpl.Shims.IdentityManager
+    public let localNetworkPermissionManager: LocalNetworkPermissionManager
     public let localUsernameManager: LocalUsernameManager
     public let messagePipelineSupervisor: RegistrationCoordinatorImpl.Shims.MessagePipelineSupervisor
     public let messageProcessor: RegistrationCoordinatorImpl.Shims.MessageProcessor
@@ -61,6 +62,7 @@ public struct RegistrationCoordinatorDependencies {
             featureFlags: RegistrationCoordinatorImpl.Wrappers.FeatureFlags(),
             accountKeyStore: DependenciesBridge.shared.accountKeyStore,
             identityManager: RegistrationCoordinatorImpl.Wrappers.IdentityManager(DependenciesBridge.shared.identityManager),
+            localNetworkPermissionManager: LocalNetworkPermissionManager(),
             localUsernameManager: DependenciesBridge.shared.localUsernameManager,
             messagePipelineSupervisor: RegistrationCoordinatorImpl.Wrappers.MessagePipelineSupervisor(SSKEnvironment.shared.messagePipelineSupervisorRef),
             messageProcessor: RegistrationCoordinatorImpl.Wrappers.MessageProcessor(SSKEnvironment.shared.messageProcessorRef),

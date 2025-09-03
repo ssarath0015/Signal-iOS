@@ -125,6 +125,16 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
                     return .value(())
                 }
                 return self.deps.contactsStore.requestContactsAuthorization()
+            }.then(on: schedulers.main) { [weak self] _ -> Guarantee<Void> in
+                guard let self else {
+                    owsFailBeta("Unretained self lost")
+                    return .value(())
+                }
+                return Guarantee { resolver in
+                    self.deps.localNetworkPermissionManager.requestLocalNetworkAuthorization {
+                        resolver(())
+                    }
+                }
             }
             .then(on: schedulers.main) { [weak self] in
                 guard let self else {
@@ -3758,9 +3768,11 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
     private func requiresSystemPermissions() -> Guarantee<Bool> {
         let contacts = deps.contactsStore.needsContactsAuthorization()
         let notifications = deps.pushRegistrationManager.needsNotificationAuthorization()
-        return Guarantee.when(fulfilled: [contacts, notifications])
+        let localNetwork = deps.localNetworkPermissionManager.needsLocalNetworkAuthorization()
+
+        return Guarantee.when(fulfilled: [contacts, notifications, localNetwork])
             .map { results in
-                return results.allSatisfy({ $0 })
+                return results.contains(where: { $0 })
             }
             .recover { _ in return .value(true) }
     }

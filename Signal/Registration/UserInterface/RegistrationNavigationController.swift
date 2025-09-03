@@ -183,7 +183,11 @@ public class RegistrationNavigationController: OWSNavigationController {
             return Controller(
                 type: RegistrationPermissionsViewController.self,
                 make: { presenter in
-                    RegistrationPermissionsViewController(requestingContactsAuthorization: true, presenter: presenter)
+                    RegistrationPermissionsViewController(
+                        requestingContactsAuthorization: true,
+                        requestingLocalNetworkAuthorization: true,
+                        presenter: presenter
+                    )
                 },
                 // The state never changes here. In theory we would build
                 // state update support in the permissions controller,

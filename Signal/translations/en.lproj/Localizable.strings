@@ -9045,3 +9045,9 @@
 
 /* Info Message when you update disappearing messages duration. Embeds a {{time amount}} before messages disappear. see the *_TIME_AMOUNT strings for context. */
 "YOU_UPDATED_DISAPPEARING_MESSAGES_CONFIGURATION" = "You set disappearing message time to %@.";
+
+/* Description of the 'Local Network' permission in the 'onboarding permissions' view. */
+"ONBOARDING_PERMISSIONS_LOCAL_NETWORK_DESCRIPTION" = "Signal uses the local network to allow you to directly transfer your account to a new phone. It will not be used unless you explicitly choose to initiate a transfer to a new device.";
+
+/* Title introducing the 'Local Network' permission in the 'onboarding permissions' view. */
+"ONBOARDING_PERMISSIONS_LOCAL_NETWORK_TITLE" = "Find Devices on Your Local Network";
