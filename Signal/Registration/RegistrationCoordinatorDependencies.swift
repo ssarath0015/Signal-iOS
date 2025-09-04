@@ -16,7 +16,6 @@ public struct RegistrationCoordinatorDependencies {
     public let contactsStore: RegistrationCoordinatorImpl.Shims.ContactsStore
     public let dateProvider: DateProvider
     public let db: any DB
-    let deviceTransferService: RegistrationCoordinatorImpl.Shims.DeviceTransferService
     public let experienceManager: RegistrationCoordinatorImpl.Shims.ExperienceManager
     public let featureFlags: RegistrationCoordinatorImpl.Shims.FeatureFlags
     public let accountKeyStore: AccountKeyStore
@@ -56,7 +55,6 @@ public struct RegistrationCoordinatorDependencies {
             contactsStore: RegistrationCoordinatorImpl.Wrappers.ContactsStore(),
             dateProvider: { Date() },
             db: DependenciesBridge.shared.db,
-            deviceTransferService: RegistrationCoordinatorImpl.Wrappers.DeviceTransferService(AppEnvironment.shared.deviceTransferServiceRef),
             experienceManager: RegistrationCoordinatorImpl.Wrappers.ExperienceManager(),
             featureFlags: RegistrationCoordinatorImpl.Wrappers.FeatureFlags(),
             accountKeyStore: DependenciesBridge.shared.accountKeyStore,

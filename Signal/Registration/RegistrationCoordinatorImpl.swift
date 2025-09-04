@@ -1489,16 +1489,8 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
             return .value(.scanQuickRegistrationQrCode)
         }
         if case .deviceTransfer = inMemoryState.restoreMethod {
-            if let restoreToken = inMemoryState.registrationMessage?.restoreMethodToken {
-                let transferStatusState = RegistrationTransferStatusState(
-                    deviceTransferService: deps.deviceTransferService,
-                    quickRestoreManager: deps.quickRestoreManager,
-                    restoreMethodToken: restoreToken
-                )
-                return .value(.deviceTransfer(transferStatusState))
-            } else {
-                return .value(.scanQuickRegistrationQrCode)
-            }
+            // This should not happen, as device transfer is disabled.
+            return .value(.chooseRestoreMethod)
         }
         return .value(.chooseRestoreMethod)
     }
@@ -3744,13 +3736,8 @@ public class RegistrationCoordinatorImpl: RegistrationCoordinator {
     // MARK: Device Transfer
 
     private func shouldSkipDeviceTransfer() -> Bool {
-        switch mode {
-        case .registering:
-            return persistedState.hasDeclinedTransfer
-        case .reRegistering, .changingNumber:
-            // Always skip device transfer in these modes.
-            return true
-        }
+        // Device transfer is out of scope; always skip to avoid local network prompts.
+        return true
     }
 
     // MARK: - Permissions

@@ -22,7 +22,6 @@ public class AppEnvironment: NSObject {
     @MainActor
     var ownedObjects = [AnyObject]()
 
-    let deviceTransferServiceRef: DeviceTransferService
     let pushRegistrationManagerRef: PushRegistrationManager
 
     let cvAudioPlayerRef = CVAudioPlayer()
@@ -39,8 +38,7 @@ public class AppEnvironment: NSObject {
     private(set) var quickRestoreManager: QuickRestoreManager!
     private var usernameValidationObserver: UsernameValidationObserver!
 
-    init(appReadiness: AppReadiness, deviceTransferService: DeviceTransferService) {
-        self.deviceTransferServiceRef = deviceTransferService
+    init(appReadiness: AppReadiness) {
         self.pushRegistrationManagerRef = PushRegistrationManager(appReadiness: appReadiness)
 
         super.init()
@@ -97,7 +95,7 @@ public class AppEnvironment: NSObject {
         )
 
         self.outgoingDeviceRestorePresenter = OutgoingDeviceRestorePresenter(
-            deviceTransferService: deviceTransferServiceRef,
+            deviceTransferService: nil,
             quickRestoreManager: quickRestoreManager
         )
 

@@ -18,14 +18,14 @@ extension Notification.Name {
 class OutgoingDeviceRestorePresenter: OutgoingDeviceRestoreInitialPresenter {
 
     private let internalNavigationController = OWSNavigationController()
-    private let deviceTransferService: DeviceTransferService
+    private let deviceTransferService: DeviceTransferService?
     private let quickRestoreManager: QuickRestoreManager
 
     private var viewModel: OutgoingDeviceRestoreViewModel?
     private var presentingViewController: UIViewController?
 
     init(
-        deviceTransferService: DeviceTransferService,
+        deviceTransferService: DeviceTransferService?,
         quickRestoreManager: QuickRestoreManager
     ) {
         self.deviceTransferService = deviceTransferService
@@ -37,6 +37,11 @@ class OutgoingDeviceRestorePresenter: OutgoingDeviceRestoreInitialPresenter {
         presentingViewController: UIViewController,
         animated: Bool
     ) {
+        guard let deviceTransferService = deviceTransferService else {
+            owsFailDebug("Device transfer service not available")
+            return
+        }
+
         self.viewModel = OutgoingDeviceRestoreViewModel(
             deviceTransferService: deviceTransferService,
             quickRestoreManager: quickRestoreManager,

@@ -13,7 +13,11 @@ class ProvisioningPermissionsViewController: ProvisioningBaseViewController {
         view.addSubview(primaryView)
         primaryView.autoPinEdgesToSuperviewEdges()
 
-        let content = RegistrationPermissionsViewController(requestingContactsAuthorization: false, presenter: self)
+        let content = RegistrationPermissionsViewController(
+            requestingContactsAuthorization: false,
+            requestingLocalNetworkAuthorization: false,
+            presenter: self
+        )
         addChild(content)
         primaryView.addSubview(content.view)
         content.view.autoPinEdgesToSuperviewMargins()

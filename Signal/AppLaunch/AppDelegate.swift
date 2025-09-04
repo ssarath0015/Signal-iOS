@@ -186,27 +186,16 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         let deviceBatteryLevelManager = DeviceBatteryLevelManagerImpl()
         let deviceSleepManager = DeviceSleepManagerImpl()
         let keychainStorage = KeychainStorageImpl(isUsingProductionService: TSConstants.isUsingProductionService)
-        let deviceTransferService = DeviceTransferService(
-            appReadiness: appReadiness,
-            deviceSleepManager: deviceSleepManager,
-            keychainStorage: keychainStorage
-        )
 
         AppEnvironment.setSharedEnvironment(AppEnvironment(
-            appReadiness: appReadiness,
-            deviceTransferService: deviceTransferService
+            appReadiness: appReadiness
         ))
 
         // This *must* happen before we try and access or verify the database,
         // since we may be in a state where the database has been partially
         // restored from transfer (e.g. the key was replaced, but the database
         // files haven't been moved into place)
-        let didDeviceTransferRestoreSucceed = Bench(
-            title: "Slow device transfer service launch",
-            logIfLongerThan: 0.01,
-            logInProduction: true,
-            block: { deviceTransferService.launchCleanup() }
-        )
+        let didDeviceTransferRestoreSucceed = true
 
         let databaseStorage: SDSDatabaseStorage
         do {
